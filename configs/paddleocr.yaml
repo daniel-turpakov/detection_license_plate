@@ -1,0 +1,89 @@
+Global:
+  use_gpu: true
+  epoch_num: 100  # Количество эпох
+  log_smooth_window: 20
+  print_batch_step: 10
+  save_model_dir: "../weights/"  # Папка для сохранения модели
+  save_epoch_step: 5
+  eval_batch_step: 200
+  pretrained_model: "en_PP-OCRv3_rec"  # Предобученная модель
+  character_dict_path: "dict.txt"  # Путь к словарю символов
+  cal_metric_during_train: true
+  load_static_weights: false
+  use_visualdl: false  # Визуализация в VisualDL (если нужно)
+
+Optimizer:
+  name: Adam
+  beta1: 0.9
+  beta2: 0.999
+  lr:
+    name: Cosine
+    learning_rate: 0.001  # Скорость обучения
+  regularizer:
+    name: L2
+    factor: 0.00001
+
+Architecture:
+  model_type: "rec"
+  algorithm: "CRNN"
+  Transform: null
+  Backbone:
+    name: "MobileNetV3"
+    scale: 0.5
+    model_name: "large"
+  Neck:
+    name: "SequenceEncoder"
+    encoder_type: "rnn"
+    hidden_size: 96
+  Head:
+    name: "CTCHead"
+    fc_decay: 0.00001
+
+Loss:
+  name: "CTCLoss"
+
+PostProcess:
+  name: "CTCLabelDecode"
+
+Metric:
+  name: "RecMetric"
+  main_indicator: "acc"
+
+Train:
+  dataset:
+    name: "SimpleDataSet"
+    data_dir: "../data/dataset_ocr/train/images"  # Папка с изображениями
+    label_file_list: ["../data/dataset_ocr/train/labels.txt"]  # Файл с разметкой
+    transforms:
+      - DecodeImage:  # Чтение изображения
+          img_mode: "BGR"
+          channel_first: false
+      - RecAug:  # Аугментации
+          use_tia: true
+          aug_prob: 0.4
+      - CTCLabelEncode: {}  # Кодировка меток
+      - KeepKeys:
+          keep_keys: ["image", "label", "length"]
+  loader:
+    shuffle: true
+    batch_size_per_card: 64  # Размер батча
+    drop_last: true
+    num_workers: 8  # Количество потоков
+
+Eval:
+  dataset:
+    name: "SimpleDataSet"
+    data_dir: "../data/dataset_ocr/val/images"  # Валидационные данные
+    label_file_list: ["../data/dataset_ocr/val/labels.txt"]
+    transforms:
+      - DecodeImage:
+          img_mode: "BGR"
+          channel_first: false
+      - CTCLabelEncode: {}
+      - KeepKeys:
+          keep_keys: ["image", "label", "length"]
+  loader:
+    shuffle: false
+    batch_size_per_card: 64
+    drop_last: false
+    num_workers: 4
